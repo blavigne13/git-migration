@@ -1,0 +1,12 @@
+[core]
+	editor=subl -n -w
+[default]
+	svn-url=https://svn.schoolspecialty.com/svn/...
+	svn-dir=
+	git-url=ssh://git@bitbucket.schoolspecialty.com:7999/...
+	git-dir=
+	default-domain=schoolspecialty.com             
+	authors-file=/home/lavigb11/git-migration/authors.txt      
+	trunk=trunk/... :refs/heads/master
+	branches=branches/*:refs/heads/*
+	tags=tags/*:refs/tags/*

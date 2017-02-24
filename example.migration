@@ -1,0 +1,55 @@
+# SVN to Git migration configuration
+# Replace _all_ occurances of ... with required configuration information.
+# Note: Inline '#' is not supported. :(
+# RTFM: https://wiki.schoolspecialty.com/display/wdf/SVN+to+Git+%28Bitbucket%29+Migration+Notes
+
+	git-url = ...
+	svn-url = ...	
+	# svn-dir = ...
+
+	authors-file = .../authors.txt
+	default-domain = schoolspecialty.com
+
+	trunk = ... : refs/heads/master
+	# branches = ... : refs/heads/...
+	# tags = ... : refs/tags/...
+
+
+# Brief documentation of each configuration option follows:
+
+# REPOSITORIES
+# git-url: Bitbucket repo--if you don't have a Bitbucket SSH key just use http.
+# eg: git-url = http://user@bitbucket.schoolspecialty.com:7990/scm/project/repo
+
+# svn-url: SVN repo to migrate
+# eg: svn-url = https://svn.schoolspecialty.com/svn/...
+
+# svn-dir: Common SVN directory name used to search for branch and tag paths.
+# Note: This is used for substring searching SVN repo paths in order to find
+# potentially unknown branches and tags.
+
+# MIGRATION MAPS
+# authors-file: Text file used to map SVN users to Git users. This should be the
+# full path to the file, but relative paths will work.
+# default-domain: Used for users not in the authors-file.
+
+# trunk: Exactly one trunk map is required!
+# eg: trunk = trunk/ : refs/heads/master
+#     trunk = project_path/trunk : refs/heads/master
+#     trunk = trunk/project_path : refs/heads/master
+
+# branches: Optional branch maps, including optional wildcards.
+# eg: branches = branches/* : refs/heads/*
+#     branches = project_path/branches/* : refs/heads/*
+#     branches = branches/*/project_path : refs/heads/*
+# tags: Optional tag maps, including optional wildcards.
+#     tags = project_path/tags/* : refs/tags/*
+#     tags = tags/project_path/* : refs/tags/*
+#     tags = tags/*/*/project_path : refs/tags/*/*
+
+# branches: Optional old trunk maps
+# Use these to preserve history if SVN trunk path was changed.
+# Note: This _might_ also work for branches, but hasn't been tested.
+# Note: Always uses 'branches =', even if it's for the trunk.
+# eg: branches = trunk/old_path : refs/heads/old_master
+#     branches = trunk/older_path : refs/heads/older_master
