@@ -3,18 +3,23 @@
 readonly project_path=$(pwd)
 readonly scripts_path=$(dirname "$0")
 readonly cache_path="${scripts_path}/svn_cache"
-# Create cache_path dir if need be.
+
+# Create cache_path if need be
 if [[ ! -e "${cache_path}" ]]; then
 	mkdir "${cache_path}"
 elif [[ ! -d "${cache_path}" ]]; then
-	err "migrate" "Cache path is not a directory" "${cache_path}"
+	err "
+migrate: not a directory: ${cache_path}
+Why is ${cache_path} a _file_?
+"
 fi
 
-# Config vars
+# Global vars
+declare -A migration
 readonly config_file="${scripts_path}/.migrate-config"
 declare -A core
 declare -A default
-declare -A migration
+
 # Config failsafes
 core[editor]="vim"
 
@@ -23,7 +28,6 @@ for f in "${scripts_path}/migrate/"*.sh; do
 	source "${f}"
 done
 
-# Messages
 readonly usage="
 Usage:
     migrate.sh                  Start a read-evaluate-print-loop to work with 
@@ -36,8 +40,8 @@ Options:
                      (*.migration) Note: This is the default behavior.
     -r, --recursive  Instead of the current directory, search for migration
                      files recursively. (*/*.migration)
-    -R               Same as --recursive, but also includes the current
-                     directory. (*.migration */*.migration)
+    -R               Synonym for --current --recursive
+                     (*.migration */*.migration)
 
 Batch jobs:
     gogogo  Load all migration files in the current directory (*.migration) and
@@ -56,45 +60,56 @@ Batch jobs:
                              function. Note: <months> is required.
 "
 
-# Global vars
-# >>> child processes are copy-on-write, yes?
-# >>> what about if this was done in a function?
-# >>> better way to handle this?
-migration[file]=""
-migration[svn-url]=""
-migration[svn-dir]=""
-migration[git-url]=""
-migration[git-dir]=""
-migration[authors-file]=""
-migration[default-domain]=""
-migration[trunk]=""
-migration[branches]=""
-migration[tags]=""
+readonly blank_migration="# https://wiki.schoolspecialty.com/display/wdf/SVN+to+Git+Migration+Process
+# Optional items are commented out, all others are required.
 
+svn-url = ${default[svn-url]}
+# svn-dir = ${default[svn-dir]}
+
+git-url = ${default[git-url]}
+# git-dir = ${default[git-dir]}
+
+authors-file = ${default[authors-file]}
+default-domain = ${default[default-domain]}
+
+trunk = ${default[trunk]}
+# branches = ${default[branches]}
+# tags = ${default[tags]}
+"
 
 main() {
 	read_config
 
 	if test_ssh; then
-		(( no_ssh=0 ))
+		(( no_ssh = 0 ))
 	else
-		(( no_ssh=1 ))
+		(( no_ssh = 1 ))
 	fi
 
 	while true; do
 		case "$1" in
-			-c|--current) glob+="${glob:+ }*.migration"; shift;;
-			-r|--recursive) glob+="${glob:+ }*/*.migration"; shift;;
-			-R|-cr) glob="*.migration */*.migration"; shift;;
-			*) : "${glob:=*.migration}";break;;
+			-c|--current)
+				glob+="${glob:+ }*.migration"
+				shift
+				;;
+			-r|--recursive)
+				glob+="${glob:+ }*/*.migration"
+				shift
+				;;
+			-R|-cr|-rc)
+				glob="*.migration */*.migration"
+				shift
+				;;
+			*)
+				: "${glob:=*.migration}"
+				break
+				;;
 		esac
-		echo "opts___${glob}"
 	done
 	
-	echo "jobs_______${glob}"
 	case "$1" in
 		"") repl;;
-		verify) verify_gogogo;;
+		verify) verify_all;;
 		gogogo) gogogo;;
 		recent) recent_users_gogogo "$2";;
 		paths) svn_paths_gogogo "$2";;
@@ -102,32 +117,44 @@ main() {
 	esac
 }
 
-verify_gogogo() {
-	#local glob="*.migration */*.migration"
+verify_all() {
 	for f in $(echo "${glob}"); do
-		# clear
-		echo "${glob}"
-		ls -l $(echo "${glob}")
-		echo "$f"
-		load "${f}" && status
-		echo ""
-		read -s -n 1 -p "Press the 'any' key to continue..."
+		while true; do
+			load "${f}" && status
+			echo ""
+			read -s -n 1 -p "Edit this file? (y/n) "
+			if [[ "${RESULT}" = "y" ]]; then
+				eval "${core[editor]} ${project_path}/${migration[file]}"
+			elif [[ "${RESULT}" = "n" ]]; then
+				break;
+			else
+				msg "srsly?"
+			fi
+		done
 	done
 }
 
-# migrate all .migration files passed as args
 gogogo() {
+	(( job_count = 0 ))
+	(( max_jobs = NUMBER_OF_PROCESSORS ))
+
 	msg "\nGOGOGO!"
-	(( job_count=0 ))
-	(( max_jobs=NUMBER_OF_PROCESSORS ))
-
 	info "Max concurrent migrations" "${max_jobs}"
-	info "Repository migration files" "\n$(ls *.migration | sed 's/^/    /')\n"
+	info "Repository migration files" "
+$(ls *.migration | sed 's/^/    /')
+"
 
-	read -p "${cyan@E}Are you sure?${clr@E} (yes/no) "
-	if [[ ! "${REPLY}" = "yes" ]]; then
-		return 0
-	fi
+	while true; do
+		read -s -n 1 -p "Are you sure? (y/n) "
+		if [[ "${REPLY}" = "y" ]]; then
+			break;
+		elif [[ "${REPLY}" = "n" ]]; then
+			msg "I hate you too!"
+			return 1
+		else
+			msg "wtf, mate?"
+		fi
+	done
 
 	for f in *.migration; do
 		# if max_jobs already started, wait for one to finish
@@ -148,7 +175,7 @@ gogogo() {
 
 	# wait 1 job at a time
 	while [[ ${job_count} > 0 ]]; do
-		info "Waiting on in-progress migrations" "${job_count}"
+		info "Waiting on in-progress migrations" "${job_count} jobs"
 		wait -n
 		(( --job_count ))
 	done
@@ -163,41 +190,23 @@ gogogo() {
 # full migration of file passed as arg
 migrate() {
 	sleep $((RANDOM % 3))
-	>/dev/null load "$1" \
-		&& init \
-		&& clone \
-		&& push \
-		&& echo "yay!" \
-		|| (echo "boo!"; return 1)
+	#/dev/null
+	(load "$1") \
+		&& (init) \
+		&& (clone) \
+		&& (push) \
+		&& (echo "yay!") \
+		|| (echo "boo!"; exit 1)
 }
 
 new_migration() {
 	if [[ -z "$1" ]]; then
-		err "new: name required"
 		err "Usage: new <repo-name>"
+		return 2
 	fi
 
-	echo "$(blank_migration)" > "$1.migration"
+	echo "${blank_migration}" > "$1.migration"
 	eval "${core[editor]} $1.migration"
-}
-
-blank_migration() {
-	echo "# https://wiki.schoolspecialty.com/display/wdf/SVN+to+Git+Migration+Process
-# Optional items are commented out, all others are required.
-
-svn-url = ${default[svn-url]}
-# svn-dir = ${default[svn-dir]}
-
-git-url = ${default[git-url]}
-# git-dir = ${default[git-dir]}
-
-authors-file = ${default[authors-file]}
-defaultDomain = ${default[default-domain]}
-
-trunk = ${default[trunk]}
-# branches = ${default[branches]}
-# tags = ${default[tags]}
-"
 }
 
 read_config() {
@@ -232,18 +241,20 @@ read_config() {
 }
 
 nuke() {
-    if [[ ! -d "${migration[git-dir]}" ]]; then
-        err "nuke: directory does not exist: ${migration[git-dir]}"
+	local the_site="${migration[git-dir]}"
+
+    if [[ ! -d "${the_site}" ]]; then
+        err "nuke: directory does not exist: ${the_site}"
         return 1
     fi
 
-    msg "Nuking the site from orbit. It's the only way to be sure..."
-    fail "This will permanently delete ${migration[git-dir]}"
+    msg "Nuking the the site from orbit. It's the only way to be sure..."
+    fail "This will permanently delete ${the_site}"
 
     read -p "Are you sure? (yes/no) "
     if [[ "${REPLY}" = "yes" ]]; then
-        subgit uninstall --purge "${migration[git-dir]}"
-        rm -rfd "${migration[git-dir]}"
+        subgit uninstall --purge "${the_site}" \
+        	&& rm -rfd "${the_site}"
     fi
 }
 

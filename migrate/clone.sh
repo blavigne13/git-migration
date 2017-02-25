@@ -3,7 +3,7 @@ clone() {
 	cd "${project_path}"
 
     if [[ ! -d "${migration[git-dir]}" ]]; then
-        err "clone: project dir not found: ${migration[git-dir]}"
+        err "clone: dir not found: ${migration[git-dir]}"
         return 1
     fi
 

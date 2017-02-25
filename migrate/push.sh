@@ -1,7 +1,5 @@
 #!/bin/bash
 push() {
-	cd "${project_path}"
-
 	if [[ ! -d "${migration[git-dir]}" ]]; then
 		err "push: ${migration[git-dir]}: directory not found"
 		return 1

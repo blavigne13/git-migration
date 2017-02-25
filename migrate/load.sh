@@ -1,18 +1,12 @@
 #!/bin/bash
 load() {
-	cd "${project_path}"
-	
-	if [[ -z "$1" ]]; then
-		err "load: file not specified"
-		list
-		return 2
-	elif [[ ! -f "$1" ]]; then
-		err "load: $1: file not found or not a regular file"
+	if [[ -z "$1" || ! -f "$1" ]]; then
+		err "load: $1: file not found"
 		list
 		return 2
 	fi
 
-	unload \
+	drop_a_load \
 		&& migration[file]="$1" \
 		&& read_migration_file \
 		&& set_optional \
@@ -21,24 +15,27 @@ load() {
 		&& migration[trunk]=$(format_map "${migration[trunk]}") \
 		&& migration[branches]=$(format_map "${migration[branches]}") \
 		&& migration[tags]=$(format_map "${migration[tags]}") \
-		|| (unload; exit 1)
+		|| (err "fail: load"; drop_a_load; exit 1)
 }
 
-# Clear global vars
-unload() {
-    
-migration[file]="" \
-    	&& migration[svn-url]="" \
-    	&& migration[svn-dir]="" \
-    	&& migration[git-url]="" \
-    	&& migration[git-dir]="" \
-    	&& migration[trunk]="" \
-    	&& migration[branches]="" \
-    	&& migration[tags]="" \
-    	&& migration[authors-file]="" \
-    	&& migration[default-domain]="" \
-    	&& echo "Unloaded" \
-    	|| (err "Unload failed"; exit 1)
+# Clear migration vars
+drop_a_load() {
+	for name in "${!migration[@]}"; do
+		migration["${name}"]="" || (err "fail: can't drop a load"; exit 1)
+	done
+
+	# migration[file]="" \
+ #    	&& migration[svn-url]="" \
+ #    	&& migration[svn-dir]="" \
+ #    	&& migration[git-url]="" \
+ #    	&& migration[git-dir]="" \
+ #    	&& migration[trunk]="" \
+ #    	&& migration[branches]="" \
+ #    	&& migration[tags]="" \
+ #    	&& migration[authors-file]="" \
+ #    	&& migration[default-domain]="" \
+ #    	&& echo "Dropped a load" \
+ #    	|| (err "fail: can't drop a load"; exit 1)
 }
 
 check_required() {
@@ -48,14 +45,8 @@ check_required() {
 		err "load: invalid svn-url: ${migration[svn-url]}"
 		ret="${ret:=1}"
 	fi
-
-	if [[ ! "${migration[git-url]}" == ssh://git@bitbucket.schoolspecialty.com/*.git ]]; then
+	if [[ ! "${migration[git-url]}" == *@bitbucket.schoolspecialty.com:*.git ]]; then
 		err "load: invalid git-url: ${migration[git-url]}"
-		# ret="${ret:=1}"
-	fi
-
-	if [[ ! "${migration[trunk]}" == *trunk*:*refs/heads/master ]]; then
-		err "load: invalid trunk map: ${migration[trunk]}"
 		ret="${ret:=1}"
 	fi
 
@@ -69,10 +60,27 @@ check_required() {
 		ret="${ret:=1}"
 	fi
 
-	return ${ret:-0}
+	if [[ ! "${migration[trunk]}" == *trunk*:*refs/heads/master ]]; then
+		err "load: invalid trunk map: ${migration[trunk]}"
+		ret="${ret:=1}"
+	fi
+
+	if [[ -n "${migration[branches]}" && ! "${migration[branches]}" == *branches*:*refs/heads/* ]]; then
+		err "load: invalid branches map: ${migration[branches]}"
+		ret="${ret:=1}"
+	fi
+
+	if [[ -n "${migration[tags]}" && ! "${migration[tags]}" == *tags*:*refs/tags/* ]]; then
+		err "load: invalid tags map: ${migration[tags]}"
+		ret="${ret:=1}"
+	fi
+
+	return "${ret:-0}"
 }
 
 set_optional() {
+	declare ret
+
 	if [[ -z "${migration[svn-dir]}" ]]; then
 		msg "svn-dir not provided, SVN queries disabled."
 	fi
@@ -84,10 +92,7 @@ set_optional() {
 	if [[ -z "${migration[default-domain]}" ]]; then
 		migration[default-domain]="${default[default-domain]}"
 	fi
-	echo "af____${migration[@]}"
-	echo
-	echo "af______${migration[*]}"
-	echo "af______${migration[#]}"
+
 	if [[ -z "${migration[authors-file]}" || ! -f "${migration[authors-file]}" ]]; then
 		info "
 Authors-file not configured, looking for:" "
@@ -106,35 +111,64 @@ Authors-file not configured, looking for:" "
 			info "Found" "${migration[authors-file]}\n"
 		else
 			migration[authors-file]=""
-			msg "
+			err "
 It shouldn't be easy to shoot yourself in the foot...
 If you REALLY don't want to map commit authors, make an empty authors.txt.
 "
+			ret="${ret:=1}"
 		fi
 	fi
+
+	return "${ret:-0}"
 }
 
 read_migration_file() {
-	(( lnum=0 ))	
+	declare ret
+
+	(( lnum = 0 ))
 	while read line || [ -n "${line}" ]; do
 		(( ++lnum ))
 		line="${line/'#'*/}" # strip comments
 		line="${line//[[:space:]]/}" # strip whitespace
 
 		case "${line}" in
-			svn-url*) migration[svn-url]="${line#*=}";;
-			svn-dir*) migration[svn-dir]="${line#*=}";;
-			git-url*) migration[git-url]="${line#*=}";;
-			git-dir*) migration[git-dir]="${project_path}/${line#*=}";;
-			authors-file*) migration[authors-file]="${line#*=}";;
-			defaultDomain*) migration[default-domain]="${line}";;
-			trunk*) migration[trunk]="${line}";;
-			branches*) migration[branches]+="${line}\n";;
-			tags*) migration[tags]+="${line}\n";;
-			"") ;;
-			*) err "load: ${migration[file]} (${lnum}): ${line}: invalid entry"; return 1;;
+			svn-url*)
+				migration[svn-url]="${line#*=}"
+				;;
+			svn-dir*)
+				migration[svn-dir]="${line#*=}"
+				;;
+			git-url*)
+				migration[git-url]="${line#*=}"
+				;;
+			git-dir*)
+				migration[git-dir]="${project_path}/${line#*=}"
+				;;
+			authors-file*)
+				migration[authors-file]="${line#*=}"
+				;;
+			default-domain*)
+				migration[default-domain]="defaultDomain=${line#*=}"
+				;;
+			trunk*)
+				migration[trunk]="${line}"
+				;;
+			branches*)
+				migration[branches]+="${line}\n"
+				;;
+			tags*)
+				migration[tags]+="${line}\n"
+				;;
+			"")
+				;;
+			*)
+				err "load: ${migration[file]} (${lnum}): ${line}: invalid entry"
+				ret="${ret:=1}"
+				;;
 		esac
 	done < "${migration[file]}"
+
+	return "${ret:=0}"
 }
 
 # meant to be used w/ command substitution
