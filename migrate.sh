@@ -12,15 +12,17 @@ elif [[ ! -d "${cache_path}" ]]; then
 migrate: not a directory: ${cache_path}
 Why is ${cache_path} a _file_?
 "
+	svn-queries+="no-cache!"
 fi
 
+
 # Global vars
-declare -A migration
 readonly config_file="${scripts_path}/.migrate-config"
 declare -A core
 declare -A default
+declare -A migration
 
-# Config failsafes
+# Failsafes
 core[editor]="vim"
 
 # Source files
@@ -30,38 +32,48 @@ done
 
 readonly usage="
 Usage:
-    migrate.sh                  Start a read-evaluate-print-loop to work with 
-                                individual migration files.
-    migrate.sh [options] <job>  Perform a batch job on all migration files
-                                in the current directory. (*.migration)
+    migrate.sh                  Start in read-evaluate-print-loop mode, suitable
+                                for working with individual migration files.
+    migrate.sh [options] <job>  Perform a batch job on all migration files in
+                                the current directory.
 
 Options:
-    -c, --current    Search for migration files in the current directory.
-                     (*.migration) Note: This is the default behavior.
-    -r, --recursive  Instead of the current directory, search for migration
-                     files recursively. (*/*.migration)
-    -R               Synonym for --current --recursive
-                     (*.migration */*.migration)
+    -r|--recursive  Instead of the current directory, recursively search for
+                    migration files in sub-directories.
+                    (*/*.migration)
+    -R|--recurrent  In addition to the current directory, recursively search for
+                    migration files in sub-directories.
+                    (*/*.migration)
 
-Batch jobs:
+Jobs:
+    verify  Load, display and optionally edit, all migration files in the
+            current directory. (load, status, [edit])
     gogogo  Load all migration files in the current directory (*.migration) and
             perform a complete SVN-to-Git migration. (load, init, clone, push)            
-            Note: Requires an SSH key for the target Git repository and an
-            active SSH agent. (eg: ssh-agent)
-    verify  Load, display and optionally edit all migration files in the current
-            directory. (load, status, [edit])
-    paths [depth]  Recursively search the SVN repository for directories
-                   ending with the value stored in svn-dir. If [depth] is
-                   provided, children of svn-dir will also be included.
-    recent [months]  Query the SVN repository for commits in the last 3 months 
-                     affecting any PATH returned by the paths function. If
-                     provided, [months] specifies the amount history.
-    recent <months> [depth]  Same as above, but specifies [depth] for the paths
-                             function. Note: <months> is required.
+            Note: Requires an SSH key configured for the target Git repository
+            and an active SSH agent with said key loaded. (eg: ssh-agent)
+    paths   Recursively search the SVN repository for this project's paths. In
+            order to minimize network usage, the SVN repositor's full recursive
+            directory tree is cached to disk. As such, the first query may take
+            a few minutes (depending on network speed). Requires svn-dir defined
+            in migration file.
+            Options:
+                -d|--depth <n>  Include sub-directories of svn-dir to depth <n>.
+                                Default behavior is depth 1. Examples for 
+                                'paths -d 2' (files to be tracked are in src):
+                                    svn-dir/tags/*/src
+                                    tags/svn-dir/*/*/src
+                -f|--freshen    Freshen the cache for this project's repository.
+    recent  Query the SVN repository for commit activity on project paths (as
+            reported by 'paths --depth 0'), report the commit count for each
+            author, and map to 'first-name last-name <email-address>' if mapped
+            in authors-file. Requires svn-dir defined in migration file.
+            Options:
+                -m|--months <n>  Specify a length of time (in months, duh) to
+                                 query. Default behavior is 3 months.
 "
 
-readonly blank_migration="# https://wiki.schoolspecialty.com/display/wdf/SVN+to+Git+Migration+Process
-# Optional items are commented out, all others are required.
+readonly blank_migration="# Commented properties are optional
 
 svn-url = ${default[svn-url]}
 # svn-dir = ${default[svn-dir]}
@@ -88,20 +100,16 @@ main() {
 
 	while true; do
 		case "$1" in
-			-c|--current)
-				glob+="${glob:+ }*.migration"
-				shift
-				;;
 			-r|--recursive)
-				glob+="${glob:+ }*/*.migration"
+				glob="*/*.migration"
 				shift
 				;;
-			-R|-cr|-rc)
+			-R|--recurrent)
 				glob="*.migration */*.migration"
 				shift
 				;;
 			*)
-				: "${glob:=*.migration}"
+				glob="*.migration"
 				break
 				;;
 		esac
@@ -111,8 +119,8 @@ main() {
 		"") repl;;
 		verify) verify_all;;
 		gogogo) gogogo;;
-		recent) recent_users_gogogo "$2";;
 		paths) svn_paths_gogogo "$2";;
+		recent) recent_users_gogogo "$2";;
 		*) echo "${usage}";;
 	esac
 }
@@ -140,9 +148,7 @@ gogogo() {
 
 	msg "\nGOGOGO!"
 	info "Max concurrent migrations" "${max_jobs}"
-	info "Repository migration files" "
-$(ls *.migration | sed 's/^/    /')
-"
+	info "Repository migration files" "\n$(ls *.migration | sed 's/^/    /')"
 
 	while true; do
 		read -s -n 1 -p "Are you sure? (y/n) "
@@ -171,7 +177,7 @@ $(ls *.migration | sed 's/^/    /')
 			(( ++job_count ))
 		fi
 	done
-	msg "\nAll jobs started\n"
+	msg "\nAll jobs started"
 
 	# wait 1 job at a time
 	while [[ ${job_count} > 0 ]]; do
@@ -189,14 +195,14 @@ $(ls *.migration | sed 's/^/    /')
 
 # full migration of file passed as arg
 migrate() {
-	sleep $((RANDOM % 3))
+	#sleep $((RANDOM % 13))
 	#/dev/null
 	(load "$1") \
 		&& (init) \
 		&& (clone) \
 		&& (push) \
 		&& (echo "yay!") \
-		|| (echo "boo!"; exit 1)
+		|| (echo "boo!" && false)
 }
 
 new_migration() {
@@ -211,8 +217,7 @@ new_migration() {
 
 read_config() {
 	if [[ ! -f "${config_file}" ]]; then
-		err "config file not found: ${config_file}"
-		return 1
+		err "config file not found: ${config_file}" && false
 	fi
 
 	local lnum="0"

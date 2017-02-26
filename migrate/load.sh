@@ -83,6 +83,7 @@ set_optional() {
 
 	if [[ -z "${migration[svn-dir]}" ]]; then
 		msg "svn-dir not provided, SVN queries disabled."
+		svn-queries+="no-svn-dir!"
 	fi
 
 	if [[ -z "${migration[git-dir]}" ]]; then
@@ -95,7 +96,7 @@ set_optional() {
 
 	if [[ -z "${migration[authors-file]}" || ! -f "${migration[authors-file]}" ]]; then
 		info "
-Authors-file not configured, looking for:" "
+authors-file not found, checking for:" "
     ${project_path}/${default[authors-file]}
     ${project_path}/../${default[authors-file]}
     ${scripts_path}/${default[authors-file]}"
@@ -112,8 +113,8 @@ Authors-file not configured, looking for:" "
 		else
 			migration[authors-file]=""
 			err "
-It shouldn't be easy to shoot yourself in the foot...
 If you REALLY don't want to map commit authors, make an empty authors.txt.
+After all, it shouldn't be easy to shoot yourself in the foot...
 "
 			ret="${ret:=1}"
 		fi
@@ -178,7 +179,6 @@ format_map() {
 	map="${map/'='/' = '}" # replace first '=' by ' = '
 	map="${map//'/'/'\/'}" # escape slashes
 	map="${map//'*'/'\*'}" # escape asterisks
-
 	echo "${map}"
 }
 
