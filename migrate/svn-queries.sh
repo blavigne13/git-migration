@@ -1,19 +1,19 @@
 #!/bin/bash
 svn_paths() {
     local cache_file="${cache_path}/${migration[svn-url]##*/}"
-    local depth="${1:-0}"
+
+    if [[ "$1" = "refresh" ]]; then
+        rm -f "${cache_file}"
+        shift
+    fi
+
+    local depth="${1:-1}"
 
     if [[ ! -f "${cache_file}" ]]; then
         svn ls -R "${migration[svn-url]}" | egrep '.*/$' > "${cache_file}"
     fi
 
-    egrep "${migration[svn-dir]}/([^/]*/){0,${depth}}\$" "${cache_file}"
-}
-
-svn_paths_gogogo() {
-    for f in *.migration; do
-        >/dev/null load "${f}" && svn_paths "$1" | sed 's/^/    /'
-    done
+    grep "${migration[svn-dir]}/([^/]*/){0,${depth}}\$" "${cache_file}"
 }
 
 recent_users_query() {
@@ -63,21 +63,4 @@ apply_map() {
 
 recent_users() {
     apply_map "$(recent_users_query "$1" | sort | uniq -c | sort -r)"
-}
-
-recent_users_gogogo() {
-    local all_users=""
-
-    for f in */*.migration; do
-        info "Migration file" "${f} "
-        info "svn-dir" "${migration[svn-dir]}"
-
-        >/dev/null load "${f}" \
-            && recent_users "$1" \
-            && echo "--------------------------------------------------------" \
-            && all_users+="$(recent_users_query "$1")\n"
-    done
-
-    msg "Combined"
-    apply_map "$(echo -e "${all_users%'\n'}" | sort | uniq -c | sort -r)"
 }

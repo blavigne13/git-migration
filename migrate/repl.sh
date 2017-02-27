@@ -25,24 +25,27 @@ Commands:
                     disk. As such, the first query may take a few minutes
                     (depending on network speed). Requires svn-dir defined in
                     migration file.
-                    Options:
-                        -d|--depth <n>  Include sub-directories of svn-dir to
-                                        depth <n>. Default behavior is depth 1.
-                                        Examples for 'paths -d 2' (files to be
-                                        tracked are in src):
-                                            svn-dir/tags/*/src
-                                            tags/svn-dir/*/*/src
-                        -f|--freshen    Freshen the cache for this project's
-                                        repository.
+                    Parameters:
+                        [refresh]  Refresh the cache for this project's
+                                   repository. Note: If included, refresh must
+                                   be the first parameter passed to paths.
+                                   (Because I don't feel like doing it the right
+                                   way at the moment.)
+                        [depth]  Numeric value indicating the depth of included
+                                 sub-directories of svn-dir. Default behavior is
+                                 depth 1. Examples where 'paths 2' would be
+                                 helpful (files to be tracked are in src):
+                                     svn-dir/tags/*/src
+                                     tags/svn-dir/*/*/src
     re|recent       Query the SVN repository for commit activity on project
-                    paths (as reported by 'paths --depth 0'), report the commit
-                    count for each author, and map to 'first-name last-name
+                    paths (as reported by 'paths  0'), report the commit count
+                    for each author, and map to 'first-name last-name
                     <email-address>' if mapped in authors-file. Requires svn-dir
                     defined in migration file.
                     Options:
-                        -m|--months <n>  Specify a length of time (in months,
-                                         duh) to query. Default behavior is 3
-                                         months.
+                        [months]  Numeric value indicating the length of time
+                                  (in months, duh) to query. Default behavior is
+                                  3 months.
     exit            Deposits 1337 Liberian Dollars into your bank account.
     halp            Probably prints this help message.
 "

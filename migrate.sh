@@ -21,6 +21,7 @@ readonly config_file="${scripts_path}/.migrate-config"
 declare -A core
 declare -A default
 declare -A migration
+declare -A files
 
 # Failsafes
 core[editor]="vim"
@@ -57,20 +58,33 @@ Jobs:
             directory tree is cached to disk. As such, the first query may take
             a few minutes (depending on network speed). Requires svn-dir defined
             in migration file.
-            Options:
-                -d|--depth <n>  Include sub-directories of svn-dir to depth <n>.
-                                Default behavior is depth 1. Examples for 
-                                'paths -d 2' (files to be tracked are in src):
-                                    svn-dir/tags/*/src
-                                    tags/svn-dir/*/*/src
-                -f|--freshen    Freshen the cache for this project's repository.
+            Parameters:
+                [refresh]  Refresh the cache for this project's repository.
+                           Note: If included, refresh must be the first 
+                           parameter passed to paths.
+                [depth]    Numeric value indicating the depth of included sub-
+                           directories of svn-dir. Default behavior is depth 1.
+                           Examples where 'paths 2' would be helpful (files to
+                           be tracked are in src):
+                               svn-dir/tags/*/src
+                               tags/svn-dir/*/*/src
     recent  Query the SVN repository for commit activity on project paths (as
             reported by 'paths --depth 0'), report the commit count for each
             author, and map to 'first-name last-name <email-address>' if mapped
             in authors-file. Requires svn-dir defined in migration file.
             Options:
-                -m|--months <n>  Specify a length of time (in months, duh) to
-                                 query. Default behavior is 3 months.
+                [months]  Numeric value indicating the length of time (in
+                          months, duh) to query. Default behavior is 3 months.
+
+Dependencies and stuff:
+    ls      If ls is aliased to something that prevents 'ls -1' from printing
+            the name (and *only* the name) of *exactly* one file per line,
+            things might not work as intended. Or they might not not work as
+            intended. Feel free to test it...
+    SubGit  clone.sh is the shortest script in this package. SubGit is the
+            reason for that--it does all the heavy lifting involved in
+            transalting SVN to Git. subgit/bin needs to be in your PATH for
+            init and clone to work.
 "
 
 readonly blank_migration="# Commented properties are optional
@@ -92,29 +106,16 @@ trunk = ${default[trunk]}
 main() {
 	read_config
 
-	if test_ssh; then
-		(( no_ssh = 0 ))
-	else
-		(( no_ssh = 1 ))
-	fi
-
+	glob="*.migration"
 	while true; do
 		case "$1" in
-			-r|--recursive)
-				glob="*/*.migration"
-				shift
-				;;
-			-R|--recurrent)
-				glob="*.migration */*.migration"
-				shift
-				;;
-			*)
-				glob="*.migration"
-				break
-				;;
+			-r|--recursive) glob="*/*.migration"; shift;;
+			-R|--recurrent) glob="*.migration */*.migration"; shift;;
+			*) break;;
 		esac
 	done
-	
+	glob=$(ls -1 ${glob} | sort -u)
+
 	case "$1" in
 		"") repl;;
 		verify) verify_all;;
@@ -123,86 +124,6 @@ main() {
 		recent) recent_users_gogogo "$2";;
 		*) echo "${usage}";;
 	esac
-}
-
-verify_all() {
-	for f in $(echo "${glob}"); do
-		while true; do
-			load "${f}" && status
-			echo ""
-			read -s -n 1 -p "Edit this file? (y/n) "
-			if [[ "${RESULT}" = "y" ]]; then
-				eval "${core[editor]} ${project_path}/${migration[file]}"
-			elif [[ "${RESULT}" = "n" ]]; then
-				break;
-			else
-				msg "srsly?"
-			fi
-		done
-	done
-}
-
-gogogo() {
-	(( job_count = 0 ))
-	(( max_jobs = NUMBER_OF_PROCESSORS ))
-
-	msg "\nGOGOGO!"
-	info "Max concurrent migrations" "${max_jobs}"
-	info "Repository migration files" "\n$(ls *.migration | sed 's/^/    /')"
-
-	while true; do
-		read -s -n 1 -p "Are you sure? (y/n) "
-		if [[ "${REPLY}" = "y" ]]; then
-			break;
-		elif [[ "${REPLY}" = "n" ]]; then
-			msg "I hate you too!"
-			return 1
-		else
-			msg "wtf, mate?"
-		fi
-	done
-
-	for f in *.migration; do
-		# if max_jobs already started, wait for one to finish
-		if [[ "${job_count}" -ge "${max_jobs}" ]]; then
-			info "${job_count} migrations in progress" "waiting..."
-			wait -n
-			(( --job_count ))
-		fi
-
-		# make sure f is a regular file
-		if [[ -f "${f}" ]]; then
-			info "Starting migration" "${f}"
-			migrate "${f}" &
-			(( ++job_count ))
-		fi
-	done
-	msg "\nAll jobs started"
-
-	# wait 1 job at a time
-	while [[ ${job_count} > 0 ]]; do
-		info "Waiting on in-progress migrations" "${job_count} jobs"
-		wait -n
-		(( --job_count ))
-	done
-
-	# double checking, in case I suck at this
-	info "Waiting on remaining migrations" "(should be ${job_count} jobs"
-	jobs -r
-	wait
-	msg "\nkthxbai"
-}
-
-# full migration of file passed as arg
-migrate() {
-	#sleep $((RANDOM % 13))
-	#/dev/null
-	(load "$1") \
-		&& (init) \
-		&& (clone) \
-		&& (push) \
-		&& (echo "yay!") \
-		|| (echo "boo!" && false)
 }
 
 new_migration() {

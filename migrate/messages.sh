@@ -42,6 +42,10 @@ msg() {
 	pprint "${cyan}$1"
 }
 
+sep() {
+	echo "----------------------------------------"
+}
+
 status() {
 	header "\nMigration Configuration"
 	echo "Migration file"
