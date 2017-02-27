@@ -26,11 +26,6 @@ declare -A files
 # Failsafes
 core[editor]="vim"
 
-# Source files
-for f in "${scripts_path}/migrate/"*.sh; do
-	source "${f}"
-done
-
 readonly usage="
 Usage:
     migrate.sh                  Start in read-evaluate-print-loop mode, suitable
@@ -87,24 +82,11 @@ Dependencies and stuff:
             init and clone to work.
 "
 
-readonly blank_migration="# Commented properties are optional
-
-svn-url = ${default[svn-url]}
-# svn-dir = ${default[svn-dir]}
-
-git-url = ${default[git-url]}
-# git-dir = ${default[git-dir]}
-
-authors-file = ${default[authors-file]}
-default-domain = ${default[default-domain]}
-
-trunk = ${default[trunk]}
-# branches = ${default[branches]}
-# tags = ${default[tags]}
-"
-
 main() {
 	read_config
+    for f in "${scripts_path}"/migrate/*.sh; do
+        source "${f}"
+    done
 
 	glob="*.migration"
 	while true; do
@@ -122,18 +104,9 @@ main() {
 		gogogo) gogogo;;
 		paths) svn_paths_gogogo "$2";;
 		recent) recent_users_gogogo "$2";;
+        wikify) wikify_gogogo "$2" "$3";;
 		*) echo "${usage}";;
 	esac
-}
-
-new_migration() {
-	if [[ -z "$1" ]]; then
-		err "Usage: new <repo-name>"
-		return 2
-	fi
-
-	echo "${blank_migration}" > "$1.migration"
-	eval "${core[editor]} $1.migration"
 }
 
 read_config() {
@@ -166,22 +139,61 @@ read_config() {
 	readonly -A default
 }
 
-nuke() {
-	local the_site="${migration[git-dir]}"
+wikify_gogogo() {
+    local regex='s/^[[:space:]]*\([0-9][0-9]*\)[[:space:]]\+\(.*\)[[:space:]]\+<\(.*\)>.*/| \1 | \2 | \3 |/'
+    local another_regex='s/^[[:space:]]*\([0-9][0-9]*\)[[:space:]]\+\(.*\).*/| \1 | \2 | |/'
+    
+    echo "
+{toc}
 
-    if [[ ! -d "${the_site}" ]]; then
-        err "nuke: directory does not exist: ${the_site}"
-        return 1
-    fi
+h2. Migration Status
 
-    msg "Nuking the the site from orbit. It's the only way to be sure..."
-    fail "This will permanently delete ${the_site}"
+|| Action || Status ||
+| Contact committers |  |
+| Confirm maps |  |
+| Migrate repository |  |
+| Bamboo build |  |
 
-    read -p "Are you sure? (yes/no) "
-    if [[ "${REPLY}" = "yes" ]]; then
-        subgit uninstall --purge "${the_site}" \
-        	&& rm -rfd "${the_site}"
-    fi
+h3. Comments
+
+lorem ipsum
+
+h3. Recent Committers (${2:-3} months)
+
+|| Commits || Name || Email ||"
+    recent_users_gogogo "$2" | sed "${regex}" | sed "${another_regex}"
+    echo "
+h2. Repositories
+"
+    for f in ${glob}; do
+        >/dev/null load "${f}" && wikify "$1" "$2"
+    done
+}
+
+wikify() {
+    local regex='s/^[[:space:]]*\([0-9][0-9]*\)[[:space:]]\+\(.*\)[[:space:]]\+<\(.*\)>.*/| \1 | \2 | \3 |/'
+    local another_regex='s/^[[:space:]]*\([0-9][0-9]*\)[[:space:]]\+\(.*\).*/| \1 | \2 | |/'
+
+    echo "
+h3. ${migration[file]%.migration}
+
+h4. Comments
+
+lorem ipsum
+
+h4. Recent Committers (${2:-3} months)
+
+|| Commits || Name || Email ||"
+    recent_users "$2" | sed "${regex}" | sed "${another_regex}"
+    echo "
+h4. Path map
+
+|| SVN repo path || Maps to || Comments ||"
+    svn_paths "$1" | sed 's/^/| /' | sed 's/$/ |  |  |/'
+    echo "
+{noformat:title=Migration map}"
+    cat "${migration[file]}" | sed 's/#.*//' | egrep --invert-match '^$'
+    echo "{noformat}"
 }
 
 main "$@"

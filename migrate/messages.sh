@@ -56,7 +56,7 @@ status() {
 	info "  ${migration[svn-dir]}"
 	echo "git-url"
 	info "  ${migration[git-url]}"
-	echo "git-dir:"
+	echo "git-dir"
 	info "  ${migration[git-dir]}"
 	echo "default-domain"
 	info "  ${migration[default-domain]}"

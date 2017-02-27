@@ -1,41 +1,38 @@
 #!/bin/bash
 load() {
-	if [[ -z "$1" || ! -f "$1" ]]; then
-		err "load: $1: file not found"
+	local name="${1%.migration}.migration"
+
+	if [[ -z "$1" || ! -f "${name}" ]]; then
+		err "load: ${name}: file not found"
 		list
 		return 2
 	fi
 
 	drop_a_load \
-		&& migration[file]="$1" \
+		&& msg "loading: ${name}" \
+		&& migration[file]="${name}" \
 		&& read_migration_file \
 		&& set_optional \
 		&& check_required \
 		&& migration[default-domain]="${migration[default-domain]/'='/' = '}" \
 		&& migration[trunk]=$(format_map "${migration[trunk]}") \
 		&& migration[branches]=$(format_map "${migration[branches]}") \
-		&& migration[tags]=$(format_map "${migration[tags]}") \
-		|| (err "fail: load"; drop_a_load; exit 1)
+		&& migration[tags]=$(format_map "${migration[tags]}")
+
+		if [[ ! "$?" = "0" ]]; then
+			# drop_a_load
+			err "load: ${name}: fail"
+			return 1
+		fi
+	
+		msg "${name} is loaded"
 }
 
 # Clear migration vars
 drop_a_load() {
-	for name in "${!migration[@]}"; do
-		migration["${name}"]="" || (err "fail: can't drop a load"; exit 1)
-	done
-
-	# migration[file]="" \
- #    	&& migration[svn-url]="" \
- #    	&& migration[svn-dir]="" \
- #    	&& migration[git-url]="" \
- #    	&& migration[git-dir]="" \
- #    	&& migration[trunk]="" \
- #    	&& migration[branches]="" \
- #    	&& migration[tags]="" \
- #    	&& migration[authors-file]="" \
- #    	&& migration[default-domain]="" \
- #    	&& echo "Dropped a load" \
- #    	|| (err "fail: can't drop a load"; exit 1)
+	unset migration
+	declare -g -A migration
+	msg "load dropped"
 }
 
 check_required() {
@@ -83,7 +80,7 @@ set_optional() {
 
 	if [[ -z "${migration[svn-dir]}" ]]; then
 		msg "svn-dir not provided, SVN queries disabled."
-		svn-queries+="no-svn-dir!"
+		svn_queries+="no-svn-dir!"
 	fi
 
 	if [[ -z "${migration[git-dir]}" ]]; then
@@ -95,8 +92,8 @@ set_optional() {
 	fi
 
 	if [[ -z "${migration[authors-file]}" || ! -f "${migration[authors-file]}" ]]; then
-		info "
-authors-file not found, checking for:" "
+		err "authors-file not found: ${migration[authors-file]}"
+		info "Checking for" "
     ${project_path}/${default[authors-file]}
     ${project_path}/../${default[authors-file]}
     ${scripts_path}/${default[authors-file]}"

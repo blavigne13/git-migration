@@ -1,11 +1,11 @@
 #!/bin/bash
 migrate() {
-	&>/dev/null load "$1" || sleep $((RANDOM % 2)) && echo "    $1 loaded" \
-		&& init || sleep $((RANDOM % 3)) && echo "    $1 initialized" \
-		&& clone || sleep $((RANDOM % 5)) && echo "    $1 cloned" \
-		&& push || sleep $((RANDOM % 3)) && echo "    $1 pushed." \
+	(load "$1" && echo "    $1 loaded" \
+		&& init && echo "    $1 initialized" \
+		&& clone && echo "    $1 cloned" \
+		&& push && echo "    $1 pushed." \
 		&& msg "$1 complete, yay!" \
-		|| (msg "$1 failed, Boo!" && false)
+		|| (msg "$1 failed, Boo!" && false) ) > /dev/null
 }
 
 gogogo() {
@@ -50,25 +50,20 @@ All jobs started!!1
 }
 
 verify_all() {
+	info "Repository migration files" "\n$(ls -1 ${glob} | sed 's/^/    /')\n"
+
 	for f in ${glob}; do
-		while true; do
-			load "${f}" && status
-			echo ""
-			read -s -n 1 -p "Edit this file? (y/n) "
-			if [[ "${RESULT}" = "y" ]]; then
-				eval "${core[editor]} ${project_path}/${migration[file]}"
-			elif [[ "${RESULT}" = "n" ]]; then
-				break;
-			else
-				msg "srsly?"
-			fi
-		done
+		load "${f}" && status
+		info "\nMigration file" "${f}"
+		read -s -n 1 -p "Press the 'any' key to continue..."
 	done
 }
 
 svn_paths_gogogo() {
     for f in ${glob}; do
-        >/dev/null load "${f}" && svn_paths "$@" | sed 's/^/    /'
+    	info "Migration file" "${f}"
+        load "${f}" > /dev/null && svn_paths "$@" | sed 's/^/    /'
+        sep
     done
 }
 
@@ -76,9 +71,17 @@ recent_users_gogogo() {
     local all_users=""
 
     for f in ${glob}; do
-        info "Migration file" "${f} "
-        info "svn-dir" "${migration[svn-dir]}"
+        >/dev/null load "${f}" && all_users+="$(recent_users_query "$@")\n"
+    done
 
+    apply_map "$(echo -e "${all_users%'\n'}" | sort | uniq -c | sort -r)"
+}
+
+old_recent_users_gogogo() {
+    local all_users=""
+
+    for f in ${glob}; do
+        info "Migration file" "${f} "
         >/dev/null load "${f}" \
             && all_users+="$(recent_users_query "$@")\n" \
             && recent_users "$@"
@@ -88,4 +91,3 @@ recent_users_gogogo() {
     msg "Combined"
     apply_map "$(echo -e "${all_users%'\n'}" | sort | uniq -c | sort -r)"
 }
-

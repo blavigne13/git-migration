@@ -12,7 +12,7 @@ push() {
 }
 
 test_push() {
-	(&>/dev/null cd "${project_path}/${migration[git-dir]}" && git status)
+	(cd "${project_path}/${migration[git-dir]}" && git status) &>/dev/null
 }
 
 test_pushed() {

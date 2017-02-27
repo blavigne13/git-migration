@@ -1,6 +1,5 @@
 #!/bin/bash
-halp() {
-	echo "
+halp="
 Commands:
     ls|list         List migration configuration files in current directory.
     st|status       Print the current project's configuration and status.
@@ -49,12 +48,11 @@ Commands:
     exit            Deposits 1337 Liberian Dollars into your bank account.
     halp            Probably prints this help message.
 "
-}
 
 repl() {
 	msg "I can has repl?"
 	while true; do
-		local cmd=""
+		declare -a cmd
 
 		status_bar
 		read -e -p "${cyan@E}\$ ${clr@E}" -a cmd
@@ -64,21 +62,19 @@ repl() {
 		case "${cmd}" in
 			ls|list) list;;
 			st|status) status;;
-			lo|load) load "${cmd[1]}" && status;;
+			lo|load) load "${cmd[@]:1}" && status;;
 			init) init;;
 			clone) clone;;
 			push) push;;
 			nuke) nuke;;
-			new) new_migration "${cmd[1]}";;
+			new) new_migration "${cmd[@]:1}";;
 			ed|edit) eval "${core[editor]} ${project_path}/${migration[file]}";;
-			re|recent) recent_users "${cmd[@]}";;
-			pa|paths) svn_paths "${cmd[1]}";;
+			re|recent) recent_users "${cmd[@]:1}";;
+			pa|paths) svn_paths "${cmd[@]:1}";;
 			clr|clear) clear;;
 			exit) break;;
-			h|halp) halp;;
-			*) err "invalid command: ${cmd},
-type 'halp' for help, pls.
-";;
+			h|halp) echo "${halp}";;
+			*) err "invalid command: ${cmd[0]}: type 'halp' for help, pls.";;
 		esac
 	done
 	
@@ -86,7 +82,9 @@ type 'halp' for help, pls.
 }
 
 status_bar() {
-	local msg="\n${yellow}${migration[file]}"
+	local msg="
+${yellow}${migration[file]}${clr}
+"
 
 	if [[ -z "${migration[file]}" ]]; then
 		msg+="[${red}load${clr}] "

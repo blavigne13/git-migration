@@ -8,16 +8,15 @@ svn_paths() {
     fi
 
     local depth="${1:-1}"
-
+    
     if [[ ! -f "${cache_file}" ]]; then
         svn ls -R "${migration[svn-url]}" | egrep '.*/$' > "${cache_file}"
     fi
 
-    grep "${migration[svn-dir]}/([^/]*/){0,${depth}}\$" "${cache_file}"
+    egrep "${migration[svn-dir]}/([^/]*/){0,${depth}}\$" "${cache_file}"
 }
 
 recent_users_query() {
-    # default to 3 months
     local months="${1:-3}"
 
     if [[ "${months}" != ?(-)*([0-9]) ]]; then
@@ -37,15 +36,15 @@ recent_users_query() {
     end[m]=$(date +'%m')
     end[d]=$(date +'%d')
     start[y]="${end[y]}"
-    start[m]=$(( end[m] - ${months} ))
+    start[m]=$(( end[m]-${months} ))
     start[d]="${end[d]}"
 
     while [[ "${start[m]}" -le "0" ]]; do
-        (( --y ))
-        (( m += 12 ))
+        (( --start[y] ))
+        (( start[m]+=12 ))
     done
 
-    m=$(printf %02d $m)
+    start[m]=$(printf %02d ${start[m]})
     svn log -q -r "{${start[y]}-${start[m]}-${start[d]}}:{${end[y]}-${end[m]}-${end[d]}}" "${migration[svn-url]}" $(svn_paths) \
         | egrep -v '^-*$' \
         | sed 's/^[^|]* | \([^|]*\).*$/\1/'
@@ -54,7 +53,7 @@ recent_users_query() {
 apply_map() {
     local result="$1"
 
-    while read name || [ -n "${line}" ]; do
+    while read name || [ -n "${name}" ]; do
         result="${result/${name/% =*}/${name/#*= }}"
     done < "${migration[authors-file]}"
 
