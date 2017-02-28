@@ -3,9 +3,9 @@
 	authors-file=/home/lavigb11/git-migration/authors.txt
 	gitignore=/home/lavigb11/git-migration/eclipse-maven.gitignore
 [default]
-	svn-url=https://svn.schoolspecialty.com/svn/...
+	svn-url=https://svn.schoolspecialty.com/svn/dev-...
 	svn-dir=
-	git-url=ssh://git@bitbucket.schoolspecialty.com:7999/...
+	git-url=ssh://git@bitbucket.schoolspecialty.com:7999/....git
 	git-dir=
 	default-domain=schoolspecialty.com
 	authors-file=/home/lavigb11/git-migration/authors.txt

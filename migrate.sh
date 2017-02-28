@@ -139,6 +139,12 @@ read_config() {
 	readonly -A default
 }
 
+check_junit() {
+    cd "${project_path}/migration[git-dir]"
+    git ls-tree -r --name-only \
+        $(git log -1 --pretty=format:%H) | egrep '*Test*java'
+}
+
 wikify_gogogo() {
     local regex='s/^[[:space:]]*\([0-9][0-9]*\)[[:space:]]\+\(.*\)[[:space:]]\+<\(.*\)>.*/| \1 | \2 | \3 |/'
     local another_regex='s/^[[:space:]]*\([0-9][0-9]*\)[[:space:]]\+\(.*\).*/| \1 | \2 | |/'
