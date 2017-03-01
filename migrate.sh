@@ -104,6 +104,7 @@ main() {
 		gogogo) gogogo;;
 		paths) svn_paths_gogogo "$2";;
 		recent) recent_users_gogogo "$2";;
+        junit) junit_gogogo;;
         wikify) wikify_gogogo "$2" "$3";;
 		*) echo "${usage}";;
 	esac
@@ -139,10 +140,30 @@ read_config() {
 	readonly -A default
 }
 
-check_junit() {
-    cd "${project_path}/migration[git-dir]"
-    git ls-tree -r --name-only \
-        $(git log -1 --pretty=format:%H) | egrep '*Test*java'
+junit_gogogo() {
+    for f in ${glob}; do
+        cd "${project_path}"
+        >/dev/null load "${f}" && junit
+    done
+}
+
+junit() {
+    cd "${project_path}/${migration[git-dir]}"
+    local tree="$(ls refs/heads)"
+    echo "__${tree}"
+    local tree="$(git ls-tree -r --name-only "${tree}" | sort -u)"
+    echo "____${tree}"
+
+    echo "${tree}" | grep '/[^/]*Test[^/]*java'
+    echo "===="
+    echo "${tree}" | grep '/test[^/]*java'
+    echo "===="
+    echo "${tree}" | grep '.*/test/.*java'
+
+    # git ls-tree -r --name-only $(git log -1 --pretty=format:%H) | egrep '.*Test.*.?ava'
+    echo "======="
+    pwd
+    ls refs/heads
 }
 
 wikify_gogogo() {
@@ -172,6 +193,7 @@ h3. Recent Committers (${2:-3} months)
 h2. Repositories
 "
     for f in ${glob}; do
+        cd "${project_path}"
         >/dev/null load "${f}" && wikify "$1" "$2"
     done
 }
