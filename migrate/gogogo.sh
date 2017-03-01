@@ -1,11 +1,11 @@
 #!/bin/bash
 migrate() {
-	(load "$1" && echo "    $1 loaded" \
-		&& init && echo "    $1 initialized" \
-		&& clone && echo "    $1 cloned" \
+	>/dev/null load "$1" && echo "    $1 loaded" \
+		&& >/dev/null init && echo "    $1 initialized" \
+		&& >/dev/null clone && echo "    $1 cloned" \
 		&& push && echo "    $1 pushed." \
 		&& msg "$1 complete, yay!" \
-		|| (msg "$1 failed, Boo!" && false) ) > /dev/null
+		|| (msg "$1 failed, Boo!" && false)
 }
 
 gogogo() {
