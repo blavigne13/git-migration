@@ -1,5 +1,5 @@
 #!/bin/bash
-readonly red='\033[1;31m'
+readonly red='\033[0;31m'
 readonly green='\033[0;32m'
 readonly yellow='\033[0;33m'
 readonly blue='\033[1;34m'
@@ -35,7 +35,7 @@ info() {
 }
 
 header() {
-	pprint "${green}$1"
+	pprint "${blue}$1"
 }
 
 msg() {

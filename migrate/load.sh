@@ -8,7 +8,7 @@ load() {
 		return 2
 	fi
 
-	drop_a_load \
+	>/dev/null drop_a_load \
 		&& msg "loading: ${name}" \
 		&& migration[file]="${name}" \
 		&& read_migration_file \
@@ -84,7 +84,7 @@ set_optional() {
 	fi
 
 	if [[ -z "${migration[git-dir]}" ]]; then
-		migration[git-dir]="${migration[git-url]##*'/'}"
+		migration[git-dir]="${migration[file]%'/'*}/${migration[git-url]##*'/'}"
 	fi
 
 	if [[ -z "${migration[default-domain]}" ]]; then
