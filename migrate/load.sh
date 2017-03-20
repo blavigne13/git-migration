@@ -44,7 +44,7 @@ check_required() {
 	fi
 	if [[ ! "${migration[git-url]}" == *@bitbucket.schoolspecialty.com:*.git ]]; then
 		err "load: invalid git-url: ${migration[git-url]}"
-		ret="${ret:=1}"
+		# ret="${ret:=1}"
 	fi
 
 	if [[ -z "${migration[authors-file]}" ]]; then
@@ -146,16 +146,16 @@ read_migration_file() {
 				migration[authors-file]="${line#*=}"
 				;;
 			default-domain*)
-				migration[default-domain]="defaultDomain=${line#*=}"
+				migration[default-domain]="\tdefaultDomain=${line#*=}"
 				;;
 			trunk*)
-				migration[trunk]="${line}"
+				migration[trunk]="\t${line}"
 				;;
 			branches*)
-				migration[branches]+="${line}\n"
+				migration[branches]+="\t${line}\n"
 				;;
 			tags*)
-				migration[tags]+="${line}\n"
+				migration[tags]+="\t${line}\n"
 				;;
 			"")
 				;;

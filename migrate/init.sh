@@ -14,10 +14,10 @@ init() {
 	subgit configure --svn-url "${migration[svn-url]}" "${migration[git-dir]}" \
 		&& cp "${cfg_file}" "${cfg_file}.old" \
 		&& cp "${migration[authors-file]}" "${migration[git-dir]}/subgit/authors.txt" \
-		&& perl -pi -e "s/${domain}/${migration[default-domain]}/" "${cfg_file}" \
-		&& perl -pi -e "s/${branches}/${migration[branches]}/" "${cfg_file}" \
-		&& perl -pi -e "s/${tags}/${migration[tags]}/" "${cfg_file}" \
-		&& perl -pi -e "s/${trunk}/${migration[trunk]}/" "${cfg_file}" \
+		&& perl -pi -e "s/\t${domain}/${migration[default-domain]}/" "${cfg_file}" \
+		&& perl -pi -e "s/\t${branches}/${migration[branches]}/" "${cfg_file}" \
+		&& perl -pi -e "s/\t${tags}/${migration[tags]}/" "${cfg_file}" \
+		&& perl -pi -e "s/\t${trunk}/${migration[trunk]}/" "${cfg_file}" \
 		|| (err "init: fail" && false)
 }
 
